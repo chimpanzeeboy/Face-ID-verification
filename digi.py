@@ -23,6 +23,7 @@ def get_embedding(img):
     blob = img_blob(img)
     detector.setInput(blob)
     detections = detector.forward()
+    face_detected = False
     h,w ,c= img.shape
     if len(detections)>0:
         #Assume only one face
@@ -36,17 +37,19 @@ def get_embedding(img):
         sharp_kernel = np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])
         id_face = cv2.filter2D(id_face_blur,-1,sharp_kernel)
 
-        plt.imshow(id_face)
+        plt.imshow(cv2.cvtColor(id_face,cv2.COLOR_BGR2RGB))
         plt.show()
 
         id_face2 = face_blob(id_face)
+        
         # embedded = vgg_features.predict(id_face2)
         embedder.setInput(id_face2)
         embedded = embedder.forward()
+        face_detected = True
         
-    cv2.imshow(winname='face',mat=id_face)
+    # cv2.imshow(winname='face',mat=id_face)
     
-    return embedded
+    return face_detected, embedded
 
 def selfie():
     #Number of pictures taken
@@ -97,15 +100,24 @@ def selfie():
     cv2.destroyAllWindows()
     if len(frames) > 0:
         for img in frames:
-            embedded_selfie.append(get_embedding(img))
+            face_detected, embedded = get_embedding(img)
+            if face_detected:
+                embedded_selfie.append(embedded)
             
     return embedded_selfie
 
 def id_card(path):
     id = cv2.imread(path)
-    id = card.extract_photo(id)
-    embedded_id = get_embedding(id)
-    return embedded_id
+    card_detect, id = card.extract_photo(id)
+    if card_detect:
+        face_detected, embedded_id = get_embedding(id)
+        if not face_detected:
+            print("No face detected")
+            return None
+        return embedded_id
+    else:
+        print("No card detected")
+        return None
 
 def img_blob(img):
     img = img.astype(np.float32)
@@ -148,15 +160,19 @@ def compare_face(embedded_id,embedded_selfies,threshold=0.85):
 
 def main():
     embedded_id = id_card(sys.argv[1])
-    embedded_selfies = selfie()
-    if embedded_selfies != []:
-        matched = compare_face(embedded_id,embedded_selfies)
-        if matched:
-            print("Pass")
+    if not embedded_id is None:
+        embedded_selfies = selfie()
+        if len(embedded_selfies) == 0:
+            print("No face detected in selfies")
+            return
+        if embedded_selfies != []:
+            matched = compare_face(embedded_id,embedded_selfies)
+            if matched:
+                print("Pass")
+            else:
+                print("Try Again")
         else:
-            print("Try Again")
-    else:
-        print('no face detected')
+            print('no face detected')
     
 
 if __name__ == '__main__':

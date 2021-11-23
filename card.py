@@ -5,15 +5,20 @@ import sys
 
 #Extract photo from card by position
 def extract_photo(card):
+    card_detect = False
     card_width, card_height = (645, 405)
     card_gray = cv2.cvtColor(card, cv2.COLOR_BGR2GRAY)
     card_blur = cv2.GaussianBlur(card_gray, (5,5), 1)
+    plt.imshow(card_blur,cmap='gray')
+    plt.show()
     #Use Canny Edge detection and morphology
-    card_edge = cv2.Canny(card_blur, 200,250)
+    card_edge = cv2.Canny(card_blur, 150,200)
+    plt.imshow(card_edge,cmap='gray')
+    plt.show()
     close_kernel = np.ones((5,5))
     card_edge = cv2.morphologyEx(card_edge,cv2.MORPH_CLOSE, close_kernel)
-    # plt.imshow(card_edge,cmap='gray')
-    # plt.show()
+    plt.imshow(card_edge,cmap='gray')
+    plt.show()
 
     #Find_Countour
     biggest_contour = find_biggest_countours(card_edge,card)
@@ -21,7 +26,7 @@ def extract_photo(card):
     cv2.drawContours(biggest_contour,biggest_contour,-1,(0,255,0),5)
     plt.imshow(big_con_img,cmap='gray')
     plt.show()
-    photo = np.zeros((540,860,3))
+    photo = np.zeros((540,860,3)).astype(np.uint8)
     #Change perspective
     if biggest_contour.size != 0:
         edge_points = rearrange(biggest_contour)
@@ -32,8 +37,11 @@ def extract_photo(card):
         extracted_card = cv2.resize(extracted_card,(int(860*1.5),int(540*1.5)))
         sharp_kernel = np.array([[-1,-1,-1],[-1,9,-1],[-1,-1,-1]])
         card_sharp = cv2.filter2D(extracted_card,-1,sharp_kernel)
+        plt.imshow(cv2.cvtColor(card_sharp,cv2.COLOR_BGR2RGB))
+        plt.show()
         photo = card_sharp[370:700,950:]
-    return photo
+        card_detect = True
+    return card_detect,photo
 
 def rearrange(points):
     points = points.reshape((4,2))
@@ -56,7 +64,8 @@ def find_biggest_countours(card_edge,card):
     contours, hierarchy = cv2.findContours(card_edge,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
     card_contours = card.copy()
     cv2.drawContours(card_contours,contours,-1,(0,255,0),10)
-    cv2.imshow('card_con',card_contours)
+    plt.imshow(card_contours)
+    plt.show()
     biggest = np.array([])
     max_area = 0
     for i in contours:
@@ -64,7 +73,6 @@ def find_biggest_countours(card_edge,card):
         if area > 3000:
             peri = cv2.arcLength(i,True)
             approx = cv2.approxPolyDP(i,0.1*peri,True)
-            print(approx)
             if area > max_area and len(approx) == 4:
                 biggest = approx
                 max_area = area
@@ -74,7 +82,7 @@ def main():
     #Read from image
     card = cv2.imread(sys.argv[1])
     photo = extract_photo(card)
-    print(photo.shape)
+    print(photo)
     plt.imshow(cv2.cvtColor(photo,cv2.COLOR_BGR2RGB))
     print('after')
     plt.show()
